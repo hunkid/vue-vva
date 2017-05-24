@@ -1,0 +1,26 @@
+.wtip-wrap {
+  position: absolute;
+  text-align: center;
+  border-radius: 4px;
+  border:1px solid #e62163;
+  animation: tipShow 1s;
+}
+
+.wtip-wrap:after {
+  position: absolute;
+  top:100%;
+  left: 50%;
+  content: '';
+  border: 8px solid #e62163;
+  margin: -8px 0 0 -8px;
+  transform: rotate(45deg);
+}
+
+.vva-check-err {
+  border: 1px solid #e62163;
+}
+
+@keyframes tipShow {
+  from {opacity: 0}
+  to {opacity: 1}
+}
