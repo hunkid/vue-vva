@@ -12,9 +12,9 @@ Vue.use(vva)
 <input type="button" v-vva-check value="开始校验">  
 并填写methods方法示例：  
 methods: {  
-  vvaSubmit: function() {  
-    //用户自定义  
-  }  
+&nbsp;&nbsp;vvaSubmit: function() {  
+&nbsp;&nbsp;&nbsp;&nbsp;//用户自定义  
+&nbsp;&nbsp;}  
 }  
 其中v-vva指令{egname}为必填项，校验规则可单个或多个，单个时可以为正则表达式，多个时则必须为对象，每个属性值均必须为正则表达式；  
 v-vva-msg为校验未通过后的提示符，属性名与v-vva对应。  
