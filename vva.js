@@ -1,6 +1,5 @@
 import ToolTip from './tooltips'
 var tooltip = new ToolTip()
-
 var vva = {},
   defaultCfg = {
     msgTip: '请输入正确值'
@@ -31,6 +30,8 @@ var Ob = (function () {
     getToolTip(dom) {
       if (_linkList[dom.name]) {
         return _linkList[dom.name]
+      } else {
+        return null
       }
     }
   }
@@ -100,32 +101,56 @@ function getTipMsg(name, type, vm) {
   return defaultCfg.msgTip
 }
 /**
- * 处理表单验证的结果，根据结果显示适当的错误信息
+ * 处理表单验证的结果，不通过的增添错误类标识
  * @param {Array<string>} res 校验返回的出错type数组
  * @param {HTML DOM} dom 校验的dom对象
- * @param {Vue Instance} vm 
  */
-function verifyCheck(res, dom, vm) {
+function verifyCheck(res, dom) {
   if (res.length) {
-    showErrMsg(dom, getTipMsg(dom.name, res[0], vm)) // TODO: showErrMsg不应该这么放，而应该先统一，再放 
     addClassName(dom, 'vva-check-err')
   } else {
     removeClassName(dom, 'vva-check-err')
   }
 }
 /**
- * 显示错误信息气泡
- * @param {HTML DOM} dom 验证错误表单元素
- * @param {string} msg 输入错误信息
+ * 显示单个错误信息气泡
+ * @param {vue instance} dom 验证错误表单元素
  */
-function showErrMsg(dom, msg) {
-  var tipWD = tooltip.createTooltip({
-    title: msg || defaultCfg.msgTip
-  })
-  tooltip.showTooltip(dom, tipWD)
-  Ob.link(dom, tipWD)
+function showErrMsg(vm) {
+  clearToolTip()
+  var dom = getNeedShowDom()
+  if (dom) {
+    if (!Ob.getToolTip(dom)) {
+      var res = check(vm._option[dom.name], dom, vm),
+        msg = getTipMsg(dom.name, res[0], vm),
+        tipWD = tooltip.createTooltip({
+          title: msg || defaultCfg.msgTip
+        })
+      tooltip.showTooltip(dom, tipWD)
+      Ob.link(dom, tipWD)
+    }
+  }
 }
-// TODO:
+/**
+ * 得到需要展示的dom元素
+ */
+function getNeedShowDom() {
+  return document.querySelector('.vva-check-err')
+}
+/**
+ *清空冒泡
+ */
+function clearToolTip() {
+  var domList = document.querySelectorAll('.vva-check-err')
+  for (var i = 0, n = domList.length; i < n; i++) {
+    if (Ob.getToolTip(domList[i])) {
+      var tipWD = Ob.getToolTip(domList[i]) // 不能将this换dom
+      tooltip.destroyToolTip(tipWD)
+      Ob.unlink(domList[i])
+    }
+  }
+}
+
 vva.install = function (Vue) {
   /**
    * v-vva:necessary
@@ -136,12 +161,12 @@ vva.install = function (Vue) {
     bind(el, bingding, vnode) {
       // el.style.backgroundColor = 'red'
       var _usrRule = bingding.value, // 这地方需要判断_usrRule的种类，如果是对象，根据属性名增加规则，根据属性名提示相应提示字；如果是Reg，直接增加规则，但需要添加自定义属性名，提示字默认为“输入不正确”
-        vm = vnode.context,
-        name = bingding.arg === 'EXTEND' ? el.getAttribute('name') : bingding.arg
+          vm = vnode.context,
+          name = bingding.arg === 'EXTEND' ? el.getAttribute('name') : bingding.arg
       if (Object.prototype.toString.call(_usrRule).toLowerCase() === '[object regexp]') {
         _usrRule = {
           __cusR: bingding.value
-        } // 如果是用户只写了一个规则，则只需要对这个规则进行对象封装，属性名为__cusR， TODO:， 拓展：以后可以以v-vva="/reg1/;/reg2/"的形式
+        } // 如果是用户只写了一个规则，对这个规则进行对象封装，属性名为__cusR
       }
       addClassName(el, `va${vm._uid}`)
       el.name = name
@@ -152,7 +177,7 @@ vva.install = function (Vue) {
       vm._option[name] = _usrCfg
     }
   })
-  Vue.directive('vva-tag', {
+  Vue.directive('vva-msg', {
     bind(el, bingding, vnode) {
       var _usrMsg = bingding.value
       var vm = vnode.context
@@ -164,26 +189,35 @@ vva.install = function (Vue) {
     bind(el, bingding, vnode) {
       var vm = vnode.context
       el.addEventListener('click', function () {
-        if (!hasClassName(el, 'vva-checked')) {
-          addClassName(el, 'vva-checked')
-          var toVaDomList = document.getElementsByClassName(`va${vm._uid}`)
-          for (var i = 0; i < toVaDomList.length; i++) {
-            var dom = toVaDomList[i]
-            dom.addEventListener('focus', function (e) {
-              var tipWD = Ob.getToolTip(this) // 不能将this换dom
+        var toVaDomList = document.getElementsByClassName(`va${vm._uid}`)
+        for (var i = 0; i < toVaDomList.length; i++) {
+          var dom = toVaDomList[i]
+          dom.addEventListener('focus', function (e) {
+            var tipWD = Ob.getToolTip(this) // 不能将this换dom
+            tooltip.destroyToolTip(tipWD)
+            Ob.unlink(this)
+            e.stopPropagation()
+          })
+          dom.addEventListener('blur', function (e) {
+            var res = check(vm._option[this.name], this, vm)
+            verifyCheck(res, this)
+            if (!res.length) {
+              var tipWD = Ob.getToolTip(this)
               tooltip.destroyToolTip(tipWD)
               Ob.unlink(this)
-              e.stopPropagation()
-            })
-            dom.addEventListener('blur', function (e) {
-              var res = check(vm._option[this.name], this, vm)
-              verifyCheck(res, this, vm)
-              e.stopPropagation()
-            })
-            var val = dom.value,
-                res = check(vm._option[dom.name], dom, vm)
-            verifyCheck(res, dom, vm)
-          }
+            }
+            showErrMsg(vm)
+            e.stopPropagation()
+          })
+          var val = dom.value,
+              res = check(vm._option[dom.name], dom, vm)
+          verifyCheck(res, dom)
+        }
+        var firstErrDom = getNeedShowDom()
+        if (firstErrDom) {
+          showErrMsg(vm)
+        } else { //通过校验，进行方法测试
+          vm.vva_submit && vm.vva_submit()
         }
       })
     }
